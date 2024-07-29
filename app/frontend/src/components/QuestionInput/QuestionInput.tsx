@@ -1,18 +1,30 @@
-import { useState } from "react";
+import { useState, useEffect, useContext } from "react";
 import { Stack, TextField } from "@fluentui/react";
+import { Button, Tooltip } from "@fluentui/react-components";
 import { Send28Filled } from "@fluentui/react-icons";
+import { useMsal } from "@azure/msal-react";
 
 import styles from "./QuestionInput.module.css";
+import { SpeechInput } from "./SpeechInput";
+import { LoginContext } from "../../loginContext";
+import { requireLogin } from "../../authConfig";
 
 interface Props {
     onSend: (question: string) => void;
     disabled: boolean;
+    initQuestion?: string;
     placeholder?: string;
     clearOnSend?: boolean;
+    showSpeechInput?: boolean;
 }
 
-export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend }: Props) => {
+export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, initQuestion, showSpeechInput }: Props) => {
     const [question, setQuestion] = useState<string>("");
+    const { loggedIn } = useContext(LoginContext);
+
+    useEffect(() => {
+        initQuestion && setQuestion(initQuestion);
+    }, [initQuestion]);
 
     const sendQuestion = () => {
         if (disabled || !question.trim()) {
@@ -41,12 +53,18 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend }: Pr
         }
     };
 
-    const sendQuestionDisabled = disabled || !question.trim();
+    const disableRequiredAccessControl = requireLogin && !loggedIn;
+    const sendQuestionDisabled = disabled || !question.trim() || requireLogin;
+
+    if (disableRequiredAccessControl) {
+        placeholder = "Please login to continue...";
+    }
 
     return (
         <Stack horizontal className={styles.questionInputContainer}>
             <TextField
                 className={styles.questionInputTextArea}
+                disabled={disableRequiredAccessControl}
                 placeholder={placeholder}
                 multiline
                 resizable={false}
@@ -56,14 +74,11 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend }: Pr
                 onKeyDown={onEnterPress}
             />
             <div className={styles.questionInputButtonsContainer}>
-                <div
-                    className={`${styles.questionInputSendButton} ${sendQuestionDisabled ? styles.questionInputSendButtonDisabled : ""}`}
-                    aria-label="Ask question button"
-                    onClick={sendQuestion}
-                >
-                    <Send28Filled primaryFill="rgba(115, 118, 225, 1)" />
-                </div>
+                <Tooltip content="Submit question" relationship="label">
+                    <Button size="large" icon={<Send28Filled primaryFill="rgba(115, 118, 225, 1)" />} disabled={sendQuestionDisabled} onClick={sendQuestion} />
+                </Tooltip>
             </div>
+            {showSpeechInput && <SpeechInput updateQuestion={setQuestion} />}
         </Stack>
     );
 };
